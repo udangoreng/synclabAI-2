@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('id_pertemuan')->references('id')->on('pertemuans')->onDelete('cascade')->onUpdate('cascade');
             $table->foreignId('id_user')->references('id')->on('users')->onDelete('cascade')->onUpdate('cascade');
-            $table->integer('nilai_pretest');
-            $table->integer('nilai_laporan');
-            $table->integer('nilai_total');
-            $table->integer('nilai_akhir');
+            $table->integer('nilai_pretest')->nullable();
+            $table->integer('nilai_laporan')->nullable();
+            $table->integer('nilai_total')->nullable();
+            $table->integer('nilai_akhir')->nullable();
             $table->longText('komentar')->nullable();
             $table->enum('status', ['Pending', 'Terkonfirmasi']);
             $table->timestamps();

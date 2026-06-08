@@ -34,9 +34,9 @@ class NilaiSeeder extends Seeder
 
                 if (!$exists) {
                     // Generate nilai yang realistis (65-95)
-                    $nilai_pretest = rand(65, 95);
+                    $nilai_pretest = null;
                     $nilai_laporan = rand(65, 95);
-                    $nilai_total = intval(($nilai_pretest + $nilai_laporan) / 2);
+                    $nilai_total = intval(($nilai_laporan) / 2);
                     
                     // Nilai akhir dengan sedikit variasi
                     $nilai_akhir = intval($nilai_total * 0.9 + rand(0, 10));

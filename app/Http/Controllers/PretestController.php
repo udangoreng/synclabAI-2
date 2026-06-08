@@ -17,7 +17,7 @@ class PretestController extends Controller
     public function addPretest()
     {
         // Ambil semua praktikum dengan pertemuan dan modul-nya
-        $praktikums = Praktikum::with(['jadwals.pertemuans.modul', 'jadwals.pertemuans.pretest.questions'])->get();
+        $praktikums = Praktikum::with(['jadwals.pertemuan.modul', 'jadwals.pertemuan.pretest.questions'])->get();
 
         return view('asisten.managePretest_asisten', compact('praktikums'));
     }
@@ -25,48 +25,44 @@ class PretestController extends Controller
     /**
      * Ambil pertemuan berdasarkan praktikum (untuk AJAX)
      */
-    public function getPertemuanByPraktikum(Request $request)
+    public function getPertemuanByPraktikum($id_praktikum)
     {
-        $request->validate([
-            'id_praktikum' => 'required|exists:praktikums,id',
-        ]);
-
-        $pertemuans = Pertemuan::where('id_praktikum', $request->id_praktikum)
+        $pertemuans = Pertemuan::where('id_praktikum', $id_praktikum)
             ->with(['modul', 'pretest.questions'])
             ->orderBy('pertemuan_ke')
             ->get();
 
         return response()->json($pertemuans);
     }
-
     /**
      * Ambil modul berdasarkan pertemuan (untuk AJAX)
      */
-    public function getModulByPertemuan(Request $request)
+    public function getModulByPertemuan($id_pertemuan)
     {
-        $request->validate([
-            'id_pertemuan' => 'required|exists:pertemuans,id',
-        ]);
+        $modul = Modul::where('id_pertemuan', $id_pertemuan)->first();
 
-        $modul = Modul::where('id_pertemuan', $request->id_pertemuan)->first();
-
-        return response()->json($modul);
+       return response()->json($modul ? [
+            'id'          => $modul->id,
+            'judul_modul' => $modul->judul_modul,
+            'filepath'    => $modul->filepath,         // untuk link download/view
+        ] : null);
     }
 
     /**
      * Ambil pretest dan questions berdasarkan pertemuan
      */
-    public function getPretestByPertemuan(Request $request)
+    public function getPretestByPertemuan($id_pertemuan)
     {
-        $request->validate([
-            'id_pertemuan' => 'required|exists:pertemuans,id',
-        ]);
-
-        $pretest = Pretest::where('id_pertemuan', $request->id_pertemuan)
+        $pretest = Pretest::where('id_pertemuan', $id_pertemuan)
             ->with('questions')
             ->first();
 
-        return response()->json($pretest);
+        return response()->json($pretest ? [
+            'exists'      => true,
+            'id'          => $pretest->id,
+            'judul_kuis'  => $pretest->judul_kuis,
+            'questions'   => $pretest->questions,
+        ] : ['exists' => false]);
     }
 
     /**

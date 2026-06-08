@@ -100,22 +100,28 @@ class AiController extends Controller
         // Cek apakah sudah ada pretest untuk pertemuan ini
         $existingPretest = Pretest::where('id_pertemuan', $id_pertemuan)->first();
         if ($existingPretest) {
-            return redirect()->back()->with('error', 'Pretest untuk pertemuan ini sudah ada. Hapus terlebih dahulu jika ingin generate ulang.');
-        }
+        return response()->json([   // ✅ JSON, bukan redirect
+            'success' => false,
+            'message' => 'Pretest untuk pertemuan ini sudah ada. Hapus terlebih dahulu.',
+        ], 422);
+    }
 
         // Sesuaikan dengan letak penyimpanan PDF di project kamu
         $filePath = storage_path('app/public/' . $modul->filepath);
 
-        if (!file_exists($filePath)) {
-            return redirect()->back()->with('error', 'File PDF Modul tidak ditemukan di server.');
-        }
+    if (!file_exists($filePath)) {
+        return response()->json([   // ✅ JSON, bukan redirect
+            'success' => false,
+            'message' => 'File PDF Modul tidak ditemukan di server.',
+        ], 404);
+    }
 
         try {
             $fileContent = file_get_contents($filePath);
             $fileName = basename($filePath);
 
             // Ambil Soal dari FastAPI
-            $responseQuiz = Http::timeout(120)
+            $responseQuiz = Http::timeout(240)
                                  ->attach('file', $fileContent, $fileName)
                                  ->post($this->baseUrl . '/generate-quiz');
 
@@ -141,13 +147,24 @@ class AiController extends Controller
                     ]);
                 }
 
-                return redirect()->back()->with('success', 'Soal pretest berhasil di-generate! Total: ' . count($quizzesFromAi) . ' soal');
-            } else {
-                return redirect()->back()->with('error', 'Gagal generate soal dari AI service.');
-            }
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+                return response()->json([   // ✅ JSON
+                'success' => true,
+                'message' => 'Soal pretest berhasil di-generate! Total: ' . count($quizzesFromAi) . ' soal',
+            ]);
+
+        } else {
+            return response()->json([   // ✅ JSON
+                'success' => false,
+                'message' => 'AI service gagal merespons. Status: ' . $responseQuiz->status(),
+            ], 500);
         }
+
+    } catch (\Exception $e) {
+        return response()->json([       // ✅ JSON
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage(),
+        ], 500);
+    }
     }
 
     /**
@@ -173,7 +190,7 @@ class AiController extends Controller
             $fileName = basename($filePath);
 
             // Ambil Flashcard dari FastAPI
-            $responseFlashcard = Http::timeout(120)
+            $responseFlashcard = Http::timeout(240)
                                      ->attach('file', $fileContent, $fileName)
                                      ->post($this->baseUrl . '/generate-flashcards');
 
@@ -274,67 +291,68 @@ class AiController extends Controller
      * Menghitung skor pretest berdasarkan jawaban yang dikirim siswa
      * Menyimpan hasil ke tabel nilai (nilai_pretest)
      */
-    public function gradePretest(Request $request, int $id_pretest)
-    {
-        $request->validate([
-            'answers' => 'required|array', // Format: ['id_question' => 'user_answer']
-        ]);
+   public function gradePretest(Request $request, int $id_pretest)
+{
+    $request->validate([
+        'answers' => 'required|array',
+    ]);
 
-        $userId = Auth::id();
-        $answers = $request->answers;
-        $pretest = Pretest::with('questions')->findOrFail($id_pretest);
+    $userId = Auth::id();
+    $answers = $request->answers;
+    $pretest = Pretest::with('questions')->findOrFail($id_pretest);
 
-        $correctCount = 0;
-        $totalQuestions = count($pretest->questions);
+    $correctCount = 0;
+    $totalQuestions = count($pretest->questions);
 
-        // Simpan setiap jawaban siswa dan hitung yang benar
-        foreach ($answers as $questionId => $userAnswer) {
-            $question = $pretest->questions->find($questionId);
+    foreach ($answers as $questionId => $userAnswer) {
+        $question = $pretest->questions->find($questionId);
+        
+        if ($question) {
+            $isCorrect = strtoupper($userAnswer) === strtoupper($question->correct_option);
             
-            if ($question) {
-                $isCorrect = strtoupper($userAnswer) === strtoupper($question->correct_option);
-                
-                if ($isCorrect) {
-                    $correctCount++;
-                }
-
-                // Simpan jawaban siswa
-                StudentAnswer::updateOrCreate(
-                    [
-                        'id_user' => $userId,
-                        'id_pretest' => $id_pretest,
-                        'id_question' => $questionId,
-                    ],
-                    [
-                        'user_answer' => strtoupper($userAnswer),
-                        'is_correct' => $isCorrect,
-                    ]
-                );
+            if ($isCorrect) {
+                $correctCount++;
             }
+
+            StudentAnswer::updateOrCreate(
+                [
+                    'id_user' => $userId,
+                    'id_pretest' => $id_pretest,
+                    'id_question' => $questionId,
+                ],
+                [
+                    'user_answer' => strtoupper($userAnswer),
+                    'is_correct' => $isCorrect,
+                ]
+            );
         }
-
-        // Hitung skor (skala 0-100)
-        $score = $totalQuestions > 0 ? round(($correctCount / $totalQuestions) * 100) : 0;
-
-        // Simpan ke tabel nilai
-        $pertemuan = $pretest->pertemuan;
-        $nilai = \App\Models\Nilai::updateOrCreate(
-            [
-                'id_pertemuan' => $pertemuan->id,
-                'id_user' => $userId,
-            ],
-            [
-                'nilai_pretest' => $score,
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Pretest berhasil dinilai!',
-            'score' => $score,
-            'correctCount' => $correctCount,
-            'totalQuestions' => $totalQuestions,
-            'percentage' => $score . '%',
-        ]);
     }
+
+    // ✅ LOGIKA BARU: minimal nilai 10
+    if ($correctCount > 0) {
+        $score = $totalQuestions > 0 ? round(($correctCount / $totalQuestions) * 100) : 0;
+    } else {
+        $score = 10;
+    }
+
+    $pertemuan = $pretest->pertemuan;
+    $nilai = \App\Models\Nilai::updateOrCreate(
+        [
+            'id_pertemuan' => $pertemuan->id,
+            'id_user' => $userId,
+        ],
+        [
+            'nilai_pretest' => $score,
+        ]
+    );
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Pretest berhasil dinilai!',
+        'score' => $score,
+        'correctCount' => $correctCount,
+        'totalQuestions' => $totalQuestions,
+        'percentage' => $score . '%',
+    ]);
+}
 }

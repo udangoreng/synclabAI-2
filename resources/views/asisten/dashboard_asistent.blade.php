@@ -161,7 +161,7 @@
                                         <button type="submit" class="btn primary">Input Presensi</button>
                                     </form>
                                     @if($jadwal['pending_laporan'] > 0)
-                                        <form action="{{ route('laporan.index') }}" method="GET" style="display: inline;">
+                                        <form action="{{ route('nilaiLaporan') }}" method="GET" style="display: inline;">
                                             <input type="hidden" name="pertemuan_id" value="{{ $jadwal['pertemuan']->first()->id }}">
                                             <button type="submit" class="btn pink">Review Laporan</button>
                                         </form>

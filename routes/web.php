@@ -21,8 +21,8 @@ use App\Http\Controllers\AiController;
 Route::get('/', [AuthController::class, 'welcome']);
 
 Route::middleware(['guest'])->group(function () {
-    Route::get('/login', [AuthController::class, 'index']);
-    Route::post('/login', [AuthController::class, 'login'])->name('login');
+    Route::get('/login', [AuthController::class, 'index'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->name('login.store');
     Route::get('/register', [AuthController::class, 'register'])->name('register');
     Route::post('/register', [AuthController::class, 'store'])->name('register.store');
 });
@@ -71,7 +71,7 @@ Route::middleware(['auth'])->group(function () {
     // DOSEN ROUTES
     // ==========================================
     Route::prefix('dosen')->middleware('checkRole:Dosen')->group(function () {
-        Route::get('/dosen', [DosenController::class, 'index'])->name('dashboard');
+        Route::get('/', [DosenController::class, 'index'])->name('dashboard');
         Route::get('/monitoring', [DosenController::class, 'monitoring'])->name('monitoring');
 
         Route::get('/presensi', [DosenController::class, 'presensi'])->name('dosenPresensi');
@@ -116,7 +116,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/pretest/{id_pertemuan}/generate-soal', [AiController::class, 'generateSoal'])->name('ai.generateSoal');
         
 
-        Route::get('/laporan', [LaporanController::class, 'index'])->name('nilaiLaporan');
         Route::get('/laporan', [LaporanController::class, 'index'])->name('nilaiLaporan');
         Route::post('/laporan/update/{id}', [LaporanController::class, 'updateLaporan'])->name('updateLaporan');
         Route::get('/laporan/detail/{id}', [LaporanController::class, 'showLaporan'])->name('detailLaporan');

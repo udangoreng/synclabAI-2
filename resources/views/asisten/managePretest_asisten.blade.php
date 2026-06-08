@@ -467,98 +467,106 @@
                 .catch(error => console.error('Error:', error));
         }
 
-        function loadModulAndPretest() {
-            const pertemuanId = document.getElementById('pertemuanSelect').value;
-            const tableBody = document.getElementById('tableBody');
+function loadModulAndPretest() {
+    const pertemuanId = document.getElementById('pertemuanSelect').value;
+    const tableBody = document.getElementById('tableBody');
 
-            if (!pertemuanId) {
-                tableBody.innerHTML =
-                    '<tr><td colspan="6" style="text-align: center; color: #999;">Pilih pertemuan terlebih dahulu</td></tr>';
-                document.getElementById('modulInfo').style.display = 'none';
-                return;
+    if (!pertemuanId) {
+        tableBody.innerHTML =
+            '<tr><td colspan="6" style="text-align: center; color: #999;">Pilih pertemuan terlebih dahulu</td></tr>';
+        document.getElementById('modulInfo').style.display = 'none';
+        return;
+    }
+
+    selectedPertemuanId = pertemuanId;
+
+    // Load modul
+    fetch(`/asisten/api/pretest/modul/${pertemuanId}`)
+        .then(response => response.json())
+        .then(modul => {
+            const modulInfo = document.getElementById('modulInfo');
+            if (modul && modul.judul_modul) {
+                selectedModulId = modul.id;
+                // Tampilkan nama + link PDF modul
+                document.getElementById('modulName').innerHTML =
+                    `${modul.judul_modul} — <a href="/storage/${modul.filepath}" target="_blank" style="color:#1976D2;">
+                        <i class="fas fa-file-pdf"></i> Lihat PDF
+                    </a>`;
+                modulInfo.style.display = 'block';
+            } else {
+                selectedModulId = null;
+                document.getElementById('modulName').textContent = 'Belum ada modul untuk pertemuan ini';
+                modulInfo.style.display = 'block';
             }
+        })
+        .catch(error => console.error('Error load modul:', error));
 
-            selectedPertemuanId = pertemuanId;
-
-            // Load modul
-            fetch(`/asisten/api/pretest/modul/${pertemuanId}`)
-                .then(response => response.json())
-                .then(modul => {
-                    if (modul) {
-                        selectedModulId = modul.id;
-                        document.getElementById('modulName').textContent = modul.judul_modul;
-                        document.getElementById('modulInfo').style.display = 'block';
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-
-            // Load pretest
-            fetch(`/asisten/api/pretest/get/${pertemuanId}`)
-                .then(response => response.json())
-                .then(data => {
-                    pretestData = data;
-                    loadPretestTable();
-                })
-                .catch(error => console.error('Error:', error));
-        }
+    // Load pretest
+    fetch(`/asisten/api/pretest/get/${pertemuanId}`)
+        .then(response => response.json())
+        .then(data => {
+            pretestData = data; // data sekarang punya field 'exists'
+            loadPretestTable();
+        })
+        .catch(error => console.error('Error load pretest:', error));
+}
 
         function loadPretestTable() {
-            const tableBody = document.getElementById('tableBody');
-            const pertemuanSelect = document.getElementById('pertemuanSelect');
-            const selectedPertemuan = pertemuanSelect.options[pertemuanSelect.selectedIndex];
-            const praktikumId = document.getElementById('praktikumSelect').value;
+    const tableBody = document.getElementById('tableBody');
+    const praktikumSelect = document.getElementById('praktikumSelect');
+    const pertemuanSelect = document.getElementById('pertemuanSelect');
+    const selectedPraktikum = praktikumSelect.options[praktikumSelect.selectedIndex];
+    const praktikumId = praktikumSelect.value;
 
-            // Get praktikum name
-            const praktikumSelect = document.getElementById('praktikumSelect');
-            const selectedPraktikum = praktikumSelect.options[praktikumSelect.selectedIndex];
+    fetch(`/asisten/api/pretest/pertemuan/${praktikumId}`)
+        .then(response => response.json())
+        .then(data => {
+            const pertemuan = data.find(p => p.id == selectedPertemuanId);
+            if (!pertemuan) return;
 
-            // Get pertemuan data
-            fetch(`/asisten/api/pretest/pertemuan/${praktikumId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const pertemuan = data.find(p => p.id == selectedPertemuanId);
-                    if (!pertemuan) return;
+            let html = '';
 
-                    let html = '';
+            // ✅ Cek pakai field 'exists' yang eksplisit
+            if (pretestData && pretestData.exists === true) {
+                const questionCount = pretestData.questions ? pretestData.questions.length : 0;
+                const statusClass  = questionCount > 0 ? 'generated' : 'empty';
+                const statusLabel  = questionCount > 0 ? 'Sudah Generate' : 'Pretest Ada, Soal Kosong';
 
-                    if (pretestData) {
-                        // Pretest already exists
-                        const questionCount = pretestData.questions ? pretestData.questions.length : 0;
-                        html = `
-                            <tr>
-                                <td>${selectedPraktikum.text}</td>
-                                <td>Pertemuan ${pertemuan.pertemuan_ke}</td>
-                                <td>${pretestData.judul_kuis}</td>
-                                <td><span class="question-count">${questionCount} Soal</span></td>
-                                <td><span class="status-badge generated">Sudah Generate</span></td>
-                                <td class="actions-btn">
-                                    <button class="btn-view" onclick="viewQuestions(${pretestData.id})">Lihat Soal</button>
-                                    <button class="btn-delete" onclick="deletePretest(${pretestData.id})">Hapus</button>
-                                </td>
-                            </tr>
-                        `;
-                    } else {
-                        // No pretest yet
-                        html = `
-                            <tr>
-                                <td>${selectedPraktikum.text}</td>
-                                <td>Pertemuan ${pertemuan.pertemuan_ke}</td>
-                                <td>-</td>
-                                <td>-</td>
-                                <td><span class="status-badge empty">Belum Generate</span></td>
-                                <td class="actions-btn">
-                                    <button class="btn-generate" onclick="openGeneratePopup()">
-                                        <i class="fas fa-magic"></i> Generate Soal
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    }
+                html = `
+                    <tr>
+                        <td>${selectedPraktikum.text}</td>
+                        <td>Pertemuan ${pertemuan.pertemuan_ke}</td>
+                        <td>${pretestData.judul_kuis ?? '-'}</td>
+                        <td><span class="question-count">${questionCount} Soal</span></td>
+                        <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                        <td class="actions-btn">
+                            <button class="btn-view" onclick="viewQuestions(${pretestData.id})">Lihat Soal</button>
+                            <button class="btn-delete" onclick="deletePretest(${pretestData.id})">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                // Belum ada pretest sama sekali
+                html = `
+                    <tr>
+                        <td>${selectedPraktikum.text}</td>
+                        <td>Pertemuan ${pertemuan.pertemuan_ke}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span class="status-badge empty">Belum Generate</span></td>
+                        <td class="actions-btn">
+                            <button class="btn-generate" onclick="openGeneratePopup()">
+                                <i class="fas fa-magic"></i> Generate Soal
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
 
-                    tableBody.innerHTML = html;
-                })
-                .catch(error => console.error('Error:', error));
-        }
+            tableBody.innerHTML = html;
+        })
+        .catch(error => console.error('Error load table:', error));
+}
 
         function openGeneratePopup() {
             if (!selectedPertemuanId || !selectedModulId) {

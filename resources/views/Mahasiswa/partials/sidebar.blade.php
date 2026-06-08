@@ -293,6 +293,16 @@
 
                 <li class="nav-item has-sub">
                     <div class="sub-trigger">
+                        <span><i class="fas fa-chart-line"></i> Modul & Flashcard</span>
+                        <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
+                    </div>
+                    <ul class="submenu">
+                        <li><a href="{{route('modul')}}"><i class="fas fa-star"></i> Modul</a></li>
+                        <li><a href="{{route('flashcard')}}"><i class="fas fa-fingerprint"></i> Flashcard</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item has-sub">
+                    <div class="sub-trigger">
                         <span><i class="fas fa-chart-line"></i> Nilai & Presensi</span>
                         <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
                     </div>

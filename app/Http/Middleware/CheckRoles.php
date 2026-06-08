@@ -17,11 +17,14 @@ class CheckRoles
     {
         $user = $request->user();
 
-        if ($user && $user->role === $role) {
+        if (!$user) {
+            return redirect()->route('login'); // ✅ redirect jika belum login
+        }
+
+        if ($user->role === $role) {
             return $next($request);
         }
 
-        return abort(401);
-        // dd($user);
+        return abort(403); // role salah → 403 Forbidden lebih tepat
     }
 }
