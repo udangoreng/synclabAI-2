@@ -27,12 +27,176 @@
         .dashboard-container {
             display: flex;
             min-height: 100vh;
+            width: 100%;
         }
 
+        /* SIDEBAR - tetap 280px */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            color: white;
+            flex-shrink: 0;
+            min-height: 100vh;
+        }
+
+        /* MAIN CONTENT - mengambil sisa lebar penuh */
         .main-content {
             flex: 1;
             padding: 28px 32px;
             overflow-x: auto;
+            width: calc(100% - 280px);
+            min-width: 0;
+        }
+
+        /* Pastikan container grid tidak terbatas */
+        .pretest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 24px;
+            width: 100%;
+        }
+
+        /* Perbaikan untuk responsive */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                min-height: auto;
+            }
+
+            .main-content {
+                width: 100%;
+                padding: 20px;
+            }
+
+            .sidebar-nav {
+                display: none;
+                padding: 0 20px 20px 20px;
+            }
+
+            .sidebar-nav.active {
+                display: flex;
+            }
+
+            .profile-section {
+                flex-direction: row;
+                gap: 16px;
+                text-align: left;
+            }
+
+            .avatar-circle {
+                width: 60px;
+                height: 60px;
+                margin: 0;
+            }
+
+            .page-title {
+                font-size: 1.4rem;
+            }
+
+            .filter-section {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .pretest-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .action-btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-content {
+                padding: 16px;
+            }
+
+            .modal-content {
+                width: 95%;
+            }
+        }
+
+        /* Style lainnya (sidebar, card, modal) tetap sama seperti aslinya */
+        .sidebar .profile-section {
+            padding: 32px 24px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar .avatar-circle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .sidebar .profile-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+        }
+
+        .sidebar .profile-section p {
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .sidebar-nav {
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-nav a, .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .sidebar-nav a:hover, .nav-item:hover {
+            background: rgba(59,130,246,0.2);
+            color: white;
+        }
+
+        .sidebar-nav a.active, .nav-item.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .sidebar-nav i {
+            width: 20px;
+            font-size: 1rem;
+        }
+
+        .logout-btn {
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 16px;
+            margin-top: 20px;
         }
 
         .page-header {
@@ -100,12 +264,6 @@
         .apply-filter-btn:hover {
             background: #2563eb;
             transform: translateY(-2px);
-        }
-
-        .pretest-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-            gap: 24px;
         }
 
         .pretest-card {
@@ -261,7 +419,6 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -380,92 +537,14 @@
             font-weight: 500;
         }
 
-        .btn-upload,
         .btn-confirm {
             padding: 8px 20px;
-            background: #3b82f6;
+            background: #10b981;
             color: white;
             border: none;
             border-radius: 40px;
             cursor: pointer;
             font-weight: 500;
-        }
-
-        .btn-confirm {
-            background: #10b981;
-        }
-
-        @media (max-width: 768px) {
-            .dashboard-container {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-            }
-
-            .mobile-menu-toggle {
-                display: block;
-            }
-
-            .sidebar-nav {
-                display: none;
-                padding: 0 20px 20px 20px;
-            }
-
-            .sidebar-nav.active {
-                display: flex;
-            }
-
-            .profile-section {
-                flex-direction: row;
-                gap: 16px;
-                text-align: left;
-            }
-
-            .avatar-circle {
-                width: 60px;
-                height: 60px;
-                margin: 0;
-            }
-
-            .main-content {
-                padding: 20px;
-            }
-
-            .page-title {
-                font-size: 1.4rem;
-            }
-
-            .filter-section {
-                flex-direction: column;
-            }
-
-            .filter-group {
-                width: 100%;
-            }
-
-            .pretest-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .action-btn {
-                width: 100%;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .main-content {
-                padding: 16px;
-            }
-
-            .modal-content {
-                width: 95%;
-            }
         }
     </style>
 
@@ -480,12 +559,12 @@
             <div class="filter-section">
                 <div class="filter-group">
                     <label><i class="fas fa-flask"></i> Mata Kuliah</label>
-                  <select id="filterMatkul">
-                    <option value="all">Semua Mata Kuliah</option>
-                    @foreach($matkulList as $matkul)
-                        <option value="{{ $matkul }}">{{ $matkul }}</option>
-                    @endforeach
-                </select>
+                    <select id="filterMatkul">
+                        <option value="all">Semua Mata Kuliah</option>
+                        @foreach($matkulList as $matkul)
+                            <option value="{{ $matkul }}">{{ $matkul }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="filter-group">
                     <label><i class="fas fa-tag"></i> Modul</label>
@@ -546,6 +625,7 @@
             </div>
         </div>
     </div>
+
     <script>
 (function () {
     // ✅ Bersih: tidak ada sisa kode PHP closure

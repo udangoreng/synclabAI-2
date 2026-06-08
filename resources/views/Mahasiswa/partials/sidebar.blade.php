@@ -41,10 +41,23 @@
             position: sticky;
             top: 0;
             z-index: 1000;
-            /* Solusi agar logout tidak hilang saat zoom */
-            overflow-y: auto; 
+            overflow-y: auto;
+            overflow-x: hidden;
             scrollbar-width: thin;
             scrollbar-color: #475569 transparent;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
         }
 
         /* Header & Profile */
@@ -101,12 +114,15 @@
             display: flex;
             flex-direction: column;
             padding: 10px 20px 30px;
+            overflow-y: visible;
         }
 
         .nav-menu {
             list-style: none;
             flex: 1;
+            overflow-y: visible;
         }
+
 
         .nav-item {
             margin: 0.5vh 0;
@@ -173,6 +189,7 @@
         .logout-container {
             margin-top: auto;
             padding-top: 20px;
+            margin-bottom: 20px;
         }
 
         .logout-btn {
@@ -281,7 +298,7 @@
                         <span><i class="fas fa-flask"></i> Praktikum</span>
                         <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
                     </div>
-                    <ul class="submenu">
+                    <ul class="submenu" style="display: none;">
                         <li><a href="{{route('pendaftaran')}}"><i class="fas fa-list-ul"></i> Daftar Praktikum</a></li>
                         <li><a href="{{route('praktikum')}}"><i class="fas fa-pen-ruler"></i> Pendaftaran Saya</a></li>
                     </ul>
@@ -293,12 +310,12 @@
 
                 <li class="nav-item has-sub">
                     <div class="sub-trigger">
-                        <span><i class="fas fa-chart-line"></i> Modul & Flashcard</span>
+                        <span><i class="fas fa-book"></i> Modul & Flashcard</span>
                         <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
                     </div>
-                    <ul class="submenu">
-                        <li><a href="{{route('modul')}}"><i class="fas fa-star"></i> Modul</a></li>
-                        <li><a href="{{route('flashcard')}}"><i class="fas fa-fingerprint"></i> Flashcard</a></li>
+                    <ul class="submenu" style="display: none;">
+                        <li><a href="{{route('modul')}}"><i class="fas fa-book"></i> Modul</a></li>
+                        <li><a href="{{route('flashcard')}}"><i class="fas fa-lightbulb"></i> Flashcard</a></li>
                     </ul>
                 </li>
                 <li class="nav-item has-sub">
@@ -306,7 +323,7 @@
                         <span><i class="fas fa-chart-line"></i> Nilai & Presensi</span>
                         <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
                     </div>
-                    <ul class="submenu">
+                    <ul class="submenu" style="display: none;">
                         <li><a href="{{route('nilai')}}"><i class="fas fa-star"></i> Nilai</a></li>
                         <li><a href="{{route('presensi')}}"><i class="fas fa-fingerprint"></i> Presensi</a></li>
                     </ul>

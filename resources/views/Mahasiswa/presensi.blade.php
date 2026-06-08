@@ -573,6 +573,22 @@
     </div>
 
     <script>
+        document.querySelectorAll('.has-sub .sub-trigger').forEach(trigger => {
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const submenu = trigger.parentElement.querySelector('.submenu');
+        if (submenu) {
+            const isOpen = submenu.style.display === 'block';
+            submenu.style.display = isOpen ? 'none' : 'block';
+            const chevron = trigger.querySelector('.fa-chevron-down');
+            if (chevron) {
+                chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                chevron.style.transition = 'transform 0.3s';
+            }
+        }
+    });
+});
+
         (function () {
             function showDetailModal(praktikumNama) {
                 // Sembunyikan semua panel detail

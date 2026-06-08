@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Modul | Mahasiswa</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
@@ -17,15 +16,18 @@
             background: #f0f4f8;
             font-family: 'Inter', sans-serif;
             color: #1e293b;
+            overflow-x: hidden;
         }
         .dashboard-container {
             display: flex;
             min-height: 100vh;
+            width: 100%;
         }
         .main-content {
             flex: 1;
             padding: 28px 32px;
             overflow-x: auto;
+            width: calc(100% - 280px);
         }
         .page-title {
             font-size: 1.9rem;
@@ -33,13 +35,32 @@
             margin-bottom: 24px;
             color: #1e293b;
         }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                width: 100%;
+                padding: 20px;
+            }
+            .page-title {
+                font-size: 1.5rem;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .main-content {
+                padding: 16px;
+            }
+        }
     </style>
 </head>
 <body>
 <div class="dashboard-container">
-    <div class="main-content">
+    @include('Mahasiswa.partials.sidebar')
+
+    <main class="main-content">
         <h1 class="page-title">📚 Daftar Modul</h1>
-        <div class="container" style="padding: 20px;">
+         <div class="container" style="padding: 20px; max-width: 100%;">
     <div class="header-section">
         <h2>📚 Daftar Modul Praktikum</h2>
         <p style="color: #666; margin-top: 5px;">Pilih modul untuk melihat detail dan membuat flashcard</p>
@@ -156,6 +177,22 @@
 </style>
 
 <script>
+document.querySelectorAll('.has-sub .sub-trigger').forEach(trigger => {
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const submenu = trigger.parentElement.querySelector('.submenu');
+        if (submenu) {
+            const isOpen = submenu.style.display === 'block';
+            submenu.style.display = isOpen ? 'none' : 'block';
+            const chevron = trigger.querySelector('.fa-chevron-down');
+            if (chevron) {
+                chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                chevron.style.transition = 'transform 0.3s';
+            }
+        }
+    });
+});
+
     function filterModul() {
         const filterValue = document.getElementById('praktikumFilter').value;
         const cards = document.querySelectorAll('.modul-card');

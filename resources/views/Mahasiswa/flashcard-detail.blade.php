@@ -26,6 +26,46 @@
             flex: 1;
             padding: 28px 32px;
             overflow-x: auto;
+            width: 100%;
+        }
+        .container {
+            max-width: 1200px !important; /* Ganti dari 800px */
+            margin: 0 auto;
+            width: 100%;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+            
+            #flashcard {
+                min-height: 250px !important;
+                padding: 30px 20px !important;
+            }
+            
+            #cardContent {
+                font-size: 20px !important;
+            }
+            
+            .rating-btn span:first-child {
+                font-size: 16px !important;
+            }
+            
+            .rating-btn span:last-child {
+                font-size: 10px !important;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .rating-btn {
+                padding: 8px 4px !important;
+            }
+            
+            .rating-btn span:first-child {
+                font-size: 14px !important;
+            }
         }
     </style>
 </head>

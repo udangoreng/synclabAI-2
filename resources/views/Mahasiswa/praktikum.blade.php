@@ -1,13 +1,3 @@
-{{--
-    praktikum.blade.php  –  Halaman My Praktikum (Mahasiswa)
-    ─────────────────────────────────────────────────────────
-    KONSEP BARU:
-    • Mahasiswa mendaftar ke 1 Jadwal → otomatis tercatat di semua Pertemuan jadwal itu.
-    • Tab "Active"    → Pertemuan yang sedang berlangsung (current session).
-    • Tab "Upcoming"  → Pertemuan yang belum tiba (pertemuan ke > pertemuan aktif).
-    • Tab "Completed" → Pertemuan yang sudah selesai.
-    • Di atas grid selalu ada info card: Nama Praktikum, Ruangan, Hari, Jam, Dosen.
---}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -419,6 +409,13 @@
         .empty-state h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
         .empty-state p  { font-size: 0.83rem; }
 
+        .praktikum-section {
+            margin-bottom: 48px;
+        }
+        .praktikum-section:last-child {
+            margin-bottom: 0;
+        }
+
         /* ── Responsive ── */
         @media (max-width: 768px) {
             .dashboard-container { flex-direction: column; }
@@ -449,21 +446,10 @@
         @php
             $user = Auth::user();
 
-            /*
-            ┌─────────────────────────────────────────────────────────────┐
-            │  KONSEP BARU                                                │
-            │  User daftar ke 1 Jadwal → semua Pertemuan dalam jadwal itu │
-            │  secara otomatis tercakup.                                  │
-            │  Pertemuan dikelompokkan:                                   │
-            │   - pertemuan_ke <= activeThreshold && status jadwal Selesai │
-            │     → Completed                                             │
-            │   - pertemuan aktif saat ini  → Active                     │
-            │   - sisanya                   → Upcoming                   │
-            └─────────────────────────────────────────────────────────────┘
-            */
 
-            // Ambil pendaftaran user (hanya role Praktikan)
-            $pendaftaran = \App\Models\PendaftaranPraktikum::with([
+
+            // Ambil SEMUA pendaftaran user (hanya role Praktikan)
+            $pendaftarans = \App\Models\PendaftaranPraktikum::with([
                 'jadwal.praktikum',
                 'jadwal.laboratorium',
                 'jadwal.dosen',
@@ -475,110 +461,13 @@
             ])
             ->where('id_user', $user->id)
             ->where('role', 'Praktikan')
-            ->first(); // satu jadwal aktif
+            ->get(); // get() semua data, bukan hanya first()
 
-            $isRegistered = !is_null($pendaftaran);
-            $jadwal       = $pendaftaran?->jadwal;
-            $praktikum    = $jadwal?->praktikum;
-            $pertemuans   = $jadwal ? $jadwal->pertemuan->sortBy('pertemuan_ke') : collect();
-
-            $totalPertemuan = $pertemuans->count();
-
-            /*
-             Tentukan posisi pertemuan aktif:
-             Gunakan field status pada Jadwal atau logika urutan:
-             - Jika tidak ada pertemuan → semua upcoming
-             - Pertemuan ke-N dianggap ACTIVE jika jadwal/pertemuan memiliki status "Berlangsung"
-               atau fallback: anggap pertemuan ke-3 aktif (sesuai permintaan: 1&2 done, 3 active)
-             Strategi robust: cek apakah ada field "status" di pertemuan,
-             atau gunakan pertemuan_ke untuk simulasi.
-            */
-
-            // Tentukan pertemuan "aktif" sekarang (bisa dari DB atau logika urut)
-            // Fallback: pertemuan dengan status tertentu, atau gunakan angka hardcode jika belum ada field
-            $activePertemuanKe = null;
-            $completedCount    = 0;
-
-            // Coba deteksi dari status jadwal/pertemuan jika ada field 'status' di pertemuan
-            // (fallback ke urutan: pertemuan selesai = sebelum aktif)
-            // Untuk sementara: semua pertemuan sebelum "aktif" = completed, yang aktif = active, sisanya = upcoming
-            // Di sini kita anggap pertemuan_ke paling kecil yang belum selesai = aktif
-            // (Implementasi ini bisa diganti logika real jika ada field status di pertemuan)
-
-            $pertemuanActive    = collect();
-            $pertemuanUpcoming  = collect();
-            $pertemuanCompleted = collect();
-
-            if ($isRegistered && $totalPertemuan > 0) {
-                // Logika: temukan pertemuan "aktif" = pertemuan_ke terkecil yang statusnya bukan Selesai
-                // Jika Jadwal masih Dibuka/Penuh, cari pertemuan yang paling "current"
-                // Fallback sederhana: urutkan, pertemuan ke-1 dst yg jadwal sudah Selesai = completed,
-                // sisanya lihat dari urutan.
-
-                // Diasumsikan: di table pertemuan ada field status (Selesai, Aktif, Upcoming)
-                // Jika tidak: gunakan heuristik dari jadwal.status
-                foreach ($pertemuans as $p) {
-                    // Cek apakah ada presensi untuk user ini di pertemuan ini (tanda sudah dilangsungkan)
-                    $sudahHadir = $p->presensis->where('id_user', $user->id)->count() > 0;
-                    $pStatus    = $p->status ?? null; // field status jika ada
-
-                    if ($pStatus === 'Selesai' || $sudahHadir) {
-                        $pertemuanCompleted->push($p);
-                        $completedCount++;
-                    } elseif ($pStatus === 'Aktif' || ($activePertemuanKe === null && $jadwal->status !== 'Selesai')) {
-                        // Jadikan yang pertama belum selesai sebagai aktif
-                        $pertemuanActive->push($p);
-                        $activePertemuanKe = $p->pertemuan_ke;
-                    } else {
-                        $pertemuanUpcoming->push($p);
-                    }
-                }
-            }
-
-            $progressPct = $totalPertemuan > 0
-                ? round(($completedCount / $totalPertemuan) * 100)
-                : 0;
+            $isRegistered = $pendaftarans->isNotEmpty();
         @endphp
 
-        {{-- ── Jadwal Info Banner ── --}}
-        @if($isRegistered && $jadwal)
-            <div class="jadwal-banner">
-                <div class="jadwal-banner-left">
-                    <div class="jadwal-banner-icon">
-                        <i class="fas fa-flask"></i>
-                    </div>
-                    <div>
-                        <div class="jadwal-banner-nama">{{ $praktikum?->nama_praktikum ?? '-' }}</div>
-                        <div class="jadwal-banner-kode">{{ $praktikum?->kode_praktikum ?? '-' }}</div>
-                    </div>
-                </div>
-                <div class="jadwal-banner-pills">
-                    <span class="jadwal-pill pill-hari">
-                        <i class="fas fa-calendar-day"></i>
-                        {{ $jadwal->hari ?? '-' }}
-                    </span>
-                    <span class="jadwal-pill">
-                        <i class="fas fa-clock"></i>
-                        {{ $jadwal->jam_mulai ?? '-' }} – {{ $jadwal->jam_selesai ?? '-' }}
-                    </span>
-                    <span class="jadwal-pill">
-                        <i class="fas fa-door-open"></i>
-                        {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
-                    </span>
-                    <span class="jadwal-pill">
-                        <i class="fas fa-chalkboard-teacher"></i>
-                        {{ $jadwal->dosen?->nama ?? '-' }}
-                    </span>
-                </div>
-                <div class="jadwal-banner-progress">
-                    <span class="progress-label">Progres</span>
-                    <div class="progress-track">
-                        <div class="progress-fill" style="width: {{ $progressPct }}%"></div>
-                    </div>
-                    <span class="progress-num">{{ $completedCount }}/{{ $totalPertemuan }}</span>
-                </div>
-            </div>
-        @else
+        {{-- ── Not Registered State ── --}}
+        @if(!$isRegistered)
             <div class="not-registered-banner">
                 <i class="fas fa-exclamation-circle"></i>
                 <p>Anda belum terdaftar di jadwal praktikum manapun.</p>
@@ -586,234 +475,348 @@
             </div>
         @endif
 
-        {{-- ── Tab Navigation ── --}}
-        <div class="tab-nav">
-            <button class="tab-btn active" data-tab="active">
-                <i class="fas fa-circle-dot"></i> Aktif
-                <span class="tab-count" id="count-active">{{ $pertemuanActive->count() }}</span>
-            </button>
-            <button class="tab-btn" data-tab="upcoming">
-                <i class="fas fa-hourglass-half"></i> Upcoming
-                <span class="tab-count" id="count-upcoming">{{ $pertemuanUpcoming->count() }}</span>
-            </button>
-            <button class="tab-btn" data-tab="completed">
-                <i class="fas fa-check-double"></i> Selesai
-                <span class="tab-count" id="count-completed">{{ $pertemuanCompleted->count() }}</span>
-            </button>
-        </div>
+        {{-- ── Looping untuk setiap pendaftaran (setiap praktikum) ── --}}
+        @foreach($pendaftarans as $index => $pendaftaran)
+            @php
+                $jadwal       = $pendaftaran->jadwal;
+                $praktikum    = $jadwal?->praktikum;
+                $pertemuans   = $jadwal ? $jadwal->pertemuan->sortBy('pertemuan_ke') : collect();
 
-        {{-- ────────────────────────────────────────────────────────────── --}}
-        {{-- TAB: AKTIF                                                     --}}
-        {{-- ────────────────────────────────────────────────────────────── --}}
-        <div id="tab-active" class="tab-content active">
-            <div class="pertemuan-grid">
-                @forelse($pertemuanActive as $p)
-                    <div class="pertemuan-card card-active">
-                        <div class="card-top">
-                            <div class="card-number">{{ $p->pertemuan_ke }}</div>
-                            <div class="card-meta">
-                                <div class="card-praktikum-label">{{ $praktikum?->nama_praktikum }}</div>
-                                <div class="card-nama">{{ $p->nama_pertemuan }}</div>
-                            </div>
-                            <div>
-                                <span class="card-badge badge-active">
-                                    <span class="active-now-label">Sedang Aktif</span>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="card-details">
-                            @if($p->modul?->judul_modul)
-                                <div class="detail-item">
-                                    <i class="fas fa-book-open"></i>
-                                    {{ $p->modul->judul_modul }}
-                                </div>
-                            @endif
-                            @if($p->deskripsi_pertemuan)
-                                <div class="detail-item">
-                                    <i class="fas fa-align-left"></i>
-                                    {{ Str::limit($p->deskripsi_pertemuan, 80) }}
-                                </div>
-                            @endif
-                            <div class="detail-item">
-                                <i class="fas fa-calendar-day"></i>
-                                {{ $jadwal->hari ?? '-' }}, {{ $jadwal->jam_mulai ?? '' }} – {{ $jadwal->jam_selesai ?? '' }}
-                            </div>
-                            <div class="detail-item">
-                                <i class="fas fa-door-open"></i>
-                                {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
-                            </div>
-                            <div class="detail-item">
-                                <i class="fas fa-chalkboard-teacher"></i>
-                                {{ $jadwal->dosen?->nama ?? '-' }}
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <div class="action-pills">
-                                @if($p->modul?->filepath)
-                                    <a href="{{ asset('storage/' . $p->modul->filepath) }}" target="_blank" class="action-pill pill-modul">
-                                        <i class="fas fa-file-pdf"></i> Modul
-                                    </a>
-                                @endif
-                                @if($p->laporan)
-                                    {{-- <a href="{{ route('mahasiswa.laporan.submit', $p->id) }}" class="action-pill pill-laporan">
-                                        <i class="fas fa-upload"></i> Kumpul Laporan
-                                    </a> --}}
-                                @endif
-                                {{-- <a href="{{ route('mahasiswa.presensi.show', $p->id) }}" class="action-pill pill-presensi">
-                                    <i class="fas fa-qrcode"></i> Presensi
-                                </a> --}}
-                            </div>
-                        </div>
-                    </div>
-                @empty
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-circle-dot"></i></div>
-                        <h3>Tidak Ada Pertemuan Aktif</h3>
-                        <p>Pertemuan yang sedang berlangsung akan muncul di sini.</p>
-                    </div>
-                @endforelse
-            </div>
-        </div>
+                $totalPertemuan = $pertemuans->count();
 
-        {{-- ────────────────────────────────────────────────────────────── --}}
-        {{-- TAB: UPCOMING                                                  --}}
-        {{-- ────────────────────────────────────────────────────────────── --}}
-        <div id="tab-upcoming" class="tab-content">
-            <div class="pertemuan-grid">
-                @forelse($pertemuanUpcoming as $p)
-                    <div class="pertemuan-card card-upcoming">
-                        <div class="card-top">
-                            <div class="card-number">{{ $p->pertemuan_ke }}</div>
-                            <div class="card-meta">
-                                <div class="card-praktikum-label">{{ $praktikum?->nama_praktikum }}</div>
-                                <div class="card-nama">{{ $p->nama_pertemuan }}</div>
-                            </div>
-                            <span class="card-badge badge-upcoming">Akan Datang</span>
-                        </div>
-                        <div class="card-details">
-                            @if($p->modul?->judul_modul)
-                                <div class="detail-item">
-                                    <i class="fas fa-book-open"></i>
-                                    {{ $p->modul->judul_modul }}
-                                </div>
-                            @endif
-                            @if($p->deskripsi_pertemuan)
-                                <div class="detail-item">
-                                    <i class="fas fa-align-left"></i>
-                                    {{ Str::limit($p->deskripsi_pertemuan, 80) }}
-                                </div>
-                            @endif
-                            <div class="detail-item">
-                                <i class="fas fa-calendar-day"></i>
-                                {{ $jadwal->hari ?? '-' }}, {{ $jadwal->jam_mulai ?? '' }} – {{ $jadwal->jam_selesai ?? '' }}
-                            </div>
-                            <div class="detail-item">
-                                <i class="fas fa-door-open"></i>
-                                {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
-                            </div>
-                            <div class="detail-item">
-                                <i class="fas fa-chalkboard-teacher"></i>
-                                {{ $jadwal->dosen?->nama ?? '-' }}
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <div class="action-pills">
-                                <span class="action-pill pill-locked">
-                                    <i class="fas fa-lock"></i> Belum Dibuka
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                @empty
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-hourglass-half"></i></div>
-                        <h3>Tidak Ada Pertemuan Mendatang</h3>
-                        <p>Semua pertemuan sudah berlangsung atau Anda belum terdaftar.</p>
-                    </div>
-                @endforelse
-            </div>
-        </div>
+                // Klasifikasi pertemuan untuk setiap praktikum
+                $pertemuanActive    = collect();
+                $pertemuanUpcoming  = collect();
+                $pertemuanCompleted = collect();
+                $completedCount     = 0;
 
-        {{-- ────────────────────────────────────────────────────────────── --}}
-        {{-- TAB: COMPLETED                                                 --}}
-        {{-- ────────────────────────────────────────────────────────────── --}}
-        <div id="tab-completed" class="tab-content">
-            <div class="pertemuan-grid">
-                @forelse($pertemuanCompleted as $p)
-                    @php
-                        $nilaiUser = $p->nilais->where('id_user', $user->id)->first();
-                    @endphp
-                    <div class="pertemuan-card card-completed">
-                        <div class="card-top">
-                            <div class="card-number">{{ $p->pertemuan_ke }}</div>
-                            <div class="card-meta">
-                                <div class="card-praktikum-label">{{ $praktikum?->nama_praktikum }}</div>
-                                <div class="card-nama">{{ $p->nama_pertemuan }}</div>
-                            </div>
-                            <span class="card-badge badge-completed"><i class="fas fa-check"></i> Selesai</span>
+                foreach ($pertemuans as $p) {
+                    // Cek apakah ada presensi untuk user ini di pertemuan ini (tanda sudah dilangsungkan)
+                    $sudahHadir = $p->presensis->where('id_user', $user->id)->count() > 0;
+                    $pStatus    = $p->status ?? null; // field status jika ada
+
+                    if ($pStatus === 'Aktif' || $sudahHadir) {
+                        $pertemuanCompleted->push($p);
+                        $completedCount++;
+                    } elseif ($pStatus === 'Selesai') {
+                        $pertemuanActive->push($p);
+                    } else {
+                        $pertemuanActive->push($p);
+                    }
+                }
+
+                $progressPct = $totalPertemuan > 0
+                    ? round(($completedCount / $totalPertemuan) * 100)
+                    : 0;
+                
+                $uniqueId = $pendaftaran->id;
+                $gradientColor = $index % 2 == 0 ? 'var(--blue), var(--blue-dark)' : 'var(--purple), var(--purple-text)';
+            @endphp
+
+            {{-- ── Jadwal Info Banner untuk setiap praktikum ── --}}
+            <div class="praktikum-section">
+                <div class="jadwal-banner">
+                    <div class="jadwal-banner-left">
+                        <div class="jadwal-banner-icon" style="background: linear-gradient(135deg, {{ $gradientColor }})">
+                            <i class="fas fa-flask"></i>
                         </div>
-                        <div class="card-details">
-                            @if($p->modul?->judul_modul)
-                                <div class="detail-item">
-                                    <i class="fas fa-book-open"></i>
-                                    {{ $p->modul->judul_modul }}
-                                </div>
-                            @endif
-                            <div class="detail-item">
-                                <i class="fas fa-calendar-day"></i>
-                                {{ $jadwal->hari ?? '-' }}, {{ $jadwal->jam_mulai ?? '' }} – {{ $jadwal->jam_selesai ?? '' }}
-                            </div>
-                            <div class="detail-item">
-                                <i class="fas fa-door-open"></i>
-                                {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
-                            </div>
-                            <div class="detail-item">
-                                <i class="fas fa-chalkboard-teacher"></i>
-                                {{ $jadwal->dosen?->nama ?? '-' }}
-                            </div>
-                            @if($nilaiUser)
-                                <div class="detail-item" style="margin-top: 6px; padding: 6px 10px; background: var(--green-light); border-radius: 8px; color: var(--green-text); font-weight: 600;">
-                                    <i class="fas fa-star" style="color: var(--green-text);"></i>
-                                    Nilai: {{ $nilaiUser->nilai_total ?? $nilaiUser->nilai_akhir ?? '-' }}
-                                </div>
-                            @endif
-                        </div>
-                        <div class="card-footer">
-                            <div class="action-pills">
-                                @if($p->modul?->filepath)
-                                    <a href="{{ asset('storage/' . $p->modul->filepath) }}" target="_blank" class="action-pill pill-modul">
-                                        <i class="fas fa-file-pdf"></i> Modul
-                                    </a>
-                                @endif
-                                @if($nilaiUser)
-                                    {{-- <a href="{{ route('mahasiswa.nilai.show', $p->id) }}" class="action-pill pill-nilai">
-                                        <i class="fas fa-chart-bar"></i> Nilai
-                                    </a> --}}
-                                @endif
-                            </div>
+                        <div>
+                            <div class="jadwal-banner-nama">{{ $praktikum?->nama_praktikum ?? '-' }}</div>
+                            <div class="jadwal-banner-kode">{{ $praktikum?->kode_praktikum ?? '-' }}</div>
                         </div>
                     </div>
-                @empty
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-flag-checkered"></i></div>
-                        <h3>Belum Ada Pertemuan Selesai</h3>
-                        <p>Riwayat pertemuan yang telah Anda selesaikan akan muncul di sini.</p>
+                    <div class="jadwal-banner-pills">
+                        <span class="jadwal-pill pill-hari">
+                            <i class="fas fa-calendar-day"></i>
+                            {{ $jadwal->hari ?? '-' }}
+                        </span>
+                        <span class="jadwal-pill">
+                            <i class="fas fa-clock"></i>
+                            {{ $jadwal->jam_mulai ?? '-' }} – {{ $jadwal->jam_selesai ?? '-' }}
+                        </span>
+                        <span class="jadwal-pill">
+                            <i class="fas fa-door-open"></i>
+                            {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
+                        </span>
+                        <span class="jadwal-pill">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                            {{ $jadwal->dosen?->nama ?? '-' }}
+                        </span>
                     </div>
-                @endforelse
+                    <div class="jadwal-banner-progress">
+                        <span class="progress-label">Progres</span>
+                        <div class="progress-track">
+                            <div class="progress-fill" style="width: {{ $progressPct }}%"></div>
+                        </div>
+                        <span class="progress-num">{{ $completedCount }}/{{ $totalPertemuan }}</span>
+                    </div>
+                </div>
+
+                {{-- ── Tab Navigation untuk setiap praktikum ── --}}
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="active-{{ $uniqueId }}">
+                        <i class="fas fa-circle-dot"></i> Aktif
+                        <span class="tab-count">{{ $pertemuanActive->count() }}</span>
+                    </button>
+                    <button class="tab-btn" data-tab="upcoming-{{ $uniqueId }}">
+                        <i class="fas fa-hourglass-half"></i> Upcoming
+                        <span class="tab-count">{{ $pertemuanUpcoming->count() }}</span>
+                    </button>
+                    <button class="tab-btn" data-tab="completed-{{ $uniqueId }}">
+                        <i class="fas fa-check-double"></i> Selesai
+                        <span class="tab-count">{{ $pertemuanCompleted->count() }}</span>
+                    </button>
+                </div>
+
+                {{-- ────────────────────────────────────────────────────────────── --}}
+                {{-- TAB: AKTIF                                                     --}}
+                {{-- ────────────────────────────────────────────────────────────── --}}
+                <div id="tab-active-{{ $uniqueId }}" class="tab-content active">
+                    <div class="pertemuan-grid">
+                        @forelse($pertemuanActive as $p)
+                            <div class="pertemuan-card card-active">
+                                <div class="card-top">
+                                    <div class="card-number">{{ $p->pertemuan_ke }}</div>
+                                    <div class="card-meta">
+                                        <div class="card-praktikum-label">{{ $praktikum?->nama_praktikum }}</div>
+                                        <div class="card-nama">{{ $p->nama_pertemuan }}</div>
+                                    </div>
+                                    <div>
+                                        <span class="card-badge badge-active">
+                                            <span class="active-now-label">Sedang Aktif</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="card-details">
+                                    @if($p->modul?->judul_modul)
+                                        <div class="detail-item">
+                                            <i class="fas fa-book-open"></i>
+                                            {{ $p->modul->judul_modul }}
+                                        </div>
+                                    @endif
+                                    @if($p->deskripsi_pertemuan)
+                                        <div class="detail-item">
+                                            <i class="fas fa-align-left"></i>
+                                            {{ Str::limit($p->deskripsi_pertemuan, 80) }}
+                                        </div>
+                                    @endif
+                                    <div class="detail-item">
+                                        <i class="fas fa-calendar-day"></i>
+                                        {{ $jadwal->hari ?? '-' }}, {{ $jadwal->jam_mulai ?? '' }} – {{ $jadwal->jam_selesai ?? '' }}
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-door-open"></i>
+                                        {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        {{ $jadwal->dosen?->nama ?? '-' }}
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="action-pills">
+                                        @if($p->modul?->filepath)
+                                            <a href="{{ asset('storage/' . $p->modul->filepath) }}" target="_blank" class="action-pill pill-modul">
+                                                <i class="fas fa-file-pdf"></i> Modul
+                                            </a>
+                                        @endif
+                                        @if($p->laporan)
+                                            {{-- <a href="{{ route('mahasiswa.laporan.submit', $p->id) }}" class="action-pill pill-laporan">
+                                                <i class="fas fa-upload"></i> Kumpul Laporan
+                                            </a> --}}
+                                        @endif
+                                        {{-- <a href="{{ route('mahasiswa.presensi.show', $p->id) }}" class="action-pill pill-presensi">
+                                            <i class="fas fa-qrcode"></i> Presensi
+                                        </a> --}}
+                                    </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-circle-dot"></i></div>
+                                <h3>Tidak Ada Pertemuan Aktif</h3>
+                                <p>Pertemuan yang sedang berlangsung akan muncul di sini.</p>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- ────────────────────────────────────────────────────────────── --}}
+                {{-- TAB: UPCOMING                                                  --}}
+                {{-- ────────────────────────────────────────────────────────────── --}}
+                <div id="tab-upcoming-{{ $uniqueId }}" class="tab-content">
+                    <div class="pertemuan-grid">
+                        @forelse($pertemuanUpcoming as $p)
+                            <div class="pertemuan-card card-upcoming">
+                                <div class="card-top">
+                                    <div class="card-number">{{ $p->pertemuan_ke }}</div>
+                                    <div class="card-meta">
+                                        <div class="card-praktikum-label">{{ $praktikum?->nama_praktikum }}</div>
+                                        <div class="card-nama">{{ $p->nama_pertemuan }}</div>
+                                    </div>
+                                    <span class="card-badge badge-upcoming">Akan Datang</span>
+                                </div>
+                                <div class="card-details">
+                                    @if($p->modul?->judul_modul)
+                                        <div class="detail-item">
+                                            <i class="fas fa-book-open"></i>
+                                            {{ $p->modul->judul_modul }}
+                                        </div>
+                                    @endif
+                                    @if($p->deskripsi_pertemuan)
+                                        <div class="detail-item">
+                                            <i class="fas fa-align-left"></i>
+                                            {{ Str::limit($p->deskripsi_pertemuan, 80) }}
+                                        </div>
+                                    @endif
+                                    <div class="detail-item">
+                                        <i class="fas fa-calendar-day"></i>
+                                        {{ $jadwal->hari ?? '-' }}, {{ $jadwal->jam_mulai ?? '' }} – {{ $jadwal->jam_selesai ?? '' }}
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-door-open"></i>
+                                        {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        {{ $jadwal->dosen?->nama ?? '-' }}
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="action-pills">
+                                        <span class="action-pill pill-locked">
+                                            <i class="fas fa-lock"></i> Belum Dibuka
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-hourglass-half"></i></div>
+                                <h3>Tidak Ada Pertemuan Mendatang</h3>
+                                <p>Semua pertemuan sudah berlangsung atau Anda belum terdaftar.</p>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- ────────────────────────────────────────────────────────────── --}}
+                {{-- TAB: COMPLETED                                                 --}}
+                {{-- ────────────────────────────────────────────────────────────── --}}
+                <div id="tab-completed-{{ $uniqueId }}" class="tab-content">
+                    <div class="pertemuan-grid">
+                        @forelse($pertemuanCompleted as $p)
+                            @php
+                                $nilaiUser = $p->nilais->where('id_user', $user->id)->first();
+                            @endphp
+                            <div class="pertemuan-card card-completed">
+                                <div class="card-top">
+                                    <div class="card-number">{{ $p->pertemuan_ke }}</div>
+                                    <div class="card-meta">
+                                        <div class="card-praktikum-label">{{ $praktikum?->nama_praktikum }}</div>
+                                        <div class="card-nama">{{ $p->nama_pertemuan }}</div>
+                                    </div>
+                                    <span class="card-badge badge-completed"><i class="fas fa-check"></i> Selesai</span>
+                                </div>
+                                <div class="card-details">
+                                    @if($p->modul?->judul_modul)
+                                        <div class="detail-item">
+                                            <i class="fas fa-book-open"></i>
+                                            {{ $p->modul->judul_modul }}
+                                        </div>
+                                    @endif
+                                    <div class="detail-item">
+                                        <i class="fas fa-calendar-day"></i>
+                                        {{ $jadwal->hari ?? '-' }}, {{ $jadwal->jam_mulai ?? '' }} – {{ $jadwal->jam_selesai ?? '' }}
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-door-open"></i>
+                                        {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        {{ $jadwal->dosen?->nama ?? '-' }}
+                                    </div>
+                                    @if($nilaiUser)
+                                        <div class="detail-item" style="margin-top: 6px; padding: 6px 10px; background: var(--green-light); border-radius: 8px; color: var(--green-text); font-weight: 600;">
+                                            <i class="fas fa-star" style="color: var(--green-text);"></i>
+                                            Nilai: {{ $nilaiUser->nilai_total ?? $nilaiUser->nilai_akhir ?? '-' }}
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="card-footer">
+                                    <div class="action-pills">
+                                        @if($p->modul?->filepath)
+                                            <a href="{{ asset('storage/' . $p->modul->filepath) }}" target="_blank" class="action-pill pill-modul">
+                                                <i class="fas fa-file-pdf"></i> Modul
+                                            </a>
+                                        @endif
+                                        @if($nilaiUser)
+                                            {{-- <a href="{{ route('mahasiswa.nilai.show', $p->id) }}" class="action-pill pill-nilai">
+                                                <i class="fas fa-chart-bar"></i> Nilai
+                                            </a> --}}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-flag-checkered"></i></div>
+                                <h3>Belum Ada Pertemuan Selesai</h3>
+                                <p>Riwayat pertemuan yang telah Anda selesaikan akan muncul di sini.</p>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
             </div>
-        </div>
+        @endforeach
     </main>
 </div>
 
 <script>
+document.querySelectorAll('.has-sub .sub-trigger').forEach(trigger => {
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const submenu = trigger.parentElement.querySelector('.submenu');
+        if (submenu) {
+            const isOpen = submenu.style.display === 'block';
+            submenu.style.display = isOpen ? 'none' : 'block';
+            const chevron = trigger.querySelector('.fa-chevron-down');
+            if (chevron) {
+                chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                chevron.style.transition = 'transform 0.3s';
+            }
+        }
+    });
+});
+
 (function () {
-    // Tab switching
+    // Tab switching untuk multiple praktikum sections
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            const tabId = btn.dataset.tab;
+            const parentSection = btn.closest('.praktikum-section');
+            
+            if (parentSection) {
+                // Hanya toggle dalam satu section praktikum
+                parentSection.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                parentSection.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                const targetTab = parentSection.querySelector('#tab-' + tabId);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+            } else {
+                // Fallback untuk kompatibilitas dengan struktur lama
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                const targetTab = document.getElementById('tab-' + tabId);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+            }
         });
     });
 

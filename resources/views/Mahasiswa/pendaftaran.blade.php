@@ -1,14 +1,3 @@
-{{--
-    pendaftaran.blade.php  –  Halaman Pendaftaran Saya (Mahasiswa)
-    ─────────────────────────────────────────────────────────────
-    KONSEP BARU:
-    • User terdaftar di 1 Jadwal → semua Pertemuan dalam jadwal ditampilkan.
-    • Setiap pertemuan memiliki status sendiri:
-        - Selesai    → pertemuan yang sudah berlangsung (hadir / presensi tercatat)
-        - Aktif      → pertemuan yang sedang berlangsung saat ini
-        - Upcoming   → pertemuan yang belum tiba
-    • Tabel menampilkan detail per baris pertemuan: nama praktikum, ruangan, hari, jam, dosen.
---}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -358,6 +347,18 @@
         }
         .btn-close-modal:hover { background: var(--border); }
 
+        /* Praktikum section separator */
+        .praktikum-section {
+            margin-bottom: 40px;
+        }
+        .praktikum-section:last-child {
+            margin-bottom: 0;
+        }
+        .section-divider {
+            margin: 32px 0 24px;
+            border-top: 2px dashed var(--border);
+        }
+
         /* ── Responsive ── */
         @media (max-width: 768px) {
             .dashboard-container { flex-direction: column; }
@@ -387,7 +388,7 @@
                     <span class="title-icon"><i class="fas fa-pen-ruler"></i></span>
                     Pendaftaran Saya
                 </h1>
-                <p class="page-subtitle">Daftar seluruh pertemuan dari jadwal praktikum Anda</p>
+                <p class="page-subtitle">Daftar seluruh pertemuan dari semua jadwal praktikum Anda</p>
             </div>
             <button class="btn-export" id="exportBtn">
                 <i class="fas fa-download"></i> Export CSV
@@ -399,15 +400,19 @@
 
             /*
             ┌────────────────────────────────────────────────────────────────┐
-            │  Ambil pendaftaran user di 1 jadwal (role Praktikan).          │
-            │  Tampilkan semua pertemuan dari jadwal tersebut,               │
+            │  KONSEP BARU - MULTIPLE PRAKTIKUM                              │
+            │  Ambil SEMUA pendaftaran user (role Praktikan).                │
+            │  Setiap pendaftaran (jadwal) ditampilkan secara terpisah.      │
+            │  Tampilkan semua pertemuan dari setiap jadwal,                 │
             │  dengan status per-pertemuan:                                  │
             │   - Selesai  → presensi sudah ada / status field = Selesai     │
             │   - Aktif    → pertemuan pertama yang belum selesai            │
             │   - Upcoming → sisanya                                         │
             └────────────────────────────────────────────────────────────────┘
             */
-            $pendaftaran = \App\Models\PendaftaranPraktikum::with([
+            
+            // Ambil SEMUA pendaftaran (bukan hanya satu)
+            $pendaftarans = \App\Models\PendaftaranPraktikum::with([
                 'jadwal.praktikum',
                 'jadwal.laboratorium',
                 'jadwal.dosen',
@@ -419,74 +424,16 @@
             ])
             ->where('id_user', $user->id)
             ->where('role', 'Praktikan')
-            ->first();
+            ->get(); // GET semua data, bukan first()
 
-            $isRegistered = !is_null($pendaftaran);
-            $jadwal       = $pendaftaran?->jadwal;
-            $praktikum    = $jadwal?->praktikum;
-
-            $pertemuanRows = collect();
-            $activeFound   = false;
-
-            if ($isRegistered && $jadwal) {
-                $allPertemuan = $jadwal->pertemuan->sortBy('pertemuan_ke');
-
-                foreach ($allPertemuan as $p) {
-                    $sudahHadir = $p->presensis->where('id_user', $user->id)->isNotEmpty();
-                    $pStatus    = $p->status ?? null;
-                    $nilaiUser  = $p->nilais->where('id_user', $user->id)->first();
-
-                    if ($pStatus === 'Selesai' || $sudahHadir) {
-                        $rowStatus = 'Selesai';
-                    } elseif (!$activeFound && ($pStatus === 'Aktif' || $jadwal->status !== 'Selesai')) {
-                        $rowStatus   = 'Aktif';
-                        $activeFound = true;
-                    } else {
-                        $rowStatus = 'Upcoming';
-                    }
-
-                    $pertemuanRows->push([
-                        'id'            => $p->id,
-                        'pertemuan_ke'  => $p->pertemuan_ke,
-                        'nama'          => $p->nama_pertemuan,
-                        'materi'        => $p->modul?->judul_modul ?? $p->deskripsi_pertemuan ?? '-',
-                        'hari'          => $jadwal->hari ?? '-',
-                        'jam'           => ($jadwal->jam_mulai ?? '-') . ' – ' . ($jadwal->jam_selesai ?? '-'),
-                        'lab'           => $jadwal->laboratorium?->nama_laboratorium ?? '-',
-                        'dosen'         => $jadwal->dosen?->nama ?? '-',
-                        'praktikum'     => $praktikum?->nama_praktikum ?? '-',
-                        'kode'          => $praktikum?->kode_praktikum ?? '-',
-                        'status'        => $rowStatus,
-                        'nilai_total'   => $nilaiUser?->nilai_total ?? $nilaiUser?->nilai_akhir ?? null,
-                        'has_laporan'   => !is_null($p->laporan),
-                        // 'laporan_url'   => route('mahasiswa.laporan.submit', $p->id),
-                        // 'nilai_url'     => route('mahasiswa.nilai.show', $p->id),
-                    ]);
-                }
-            }
-
-            $totalPertemuan   = $pertemuanRows->count();
-            $countSelesai     = $pertemuanRows->where('status', 'Selesai')->count();
-            $countAktif       = $pertemuanRows->where('status', 'Aktif')->count();
-            $countUpcoming    = $pertemuanRows->where('status', 'Upcoming')->count();
+            $isRegistered = $pendaftarans->isNotEmpty();
+            
+            // Kumpulkan semua data pertemuan dari semua pendaftaran untuk export
+            $allPertemuanRows = collect();
         @endphp
 
-        {{-- ── Jadwal Info Card ── --}}
-        @if($isRegistered && $jadwal)
-            <div class="jadwal-info-card">
-                <div class="ji-icon"><i class="fas fa-flask"></i></div>
-                <div class="ji-info">
-                    <div class="ji-nama">{{ $praktikum?->nama_praktikum ?? '-' }}</div>
-                    <div class="ji-kode">{{ $praktikum?->kode_praktikum ?? '-' }}</div>
-                </div>
-                <div class="ji-pills">
-                    <span class="ji-pill"><i class="fas fa-calendar-day"></i> {{ $jadwal->hari ?? '-' }}</span>
-                    <span class="ji-pill"><i class="fas fa-clock"></i> {{ $jadwal->jam_mulai ?? '-' }} – {{ $jadwal->jam_selesai ?? '-' }}</span>
-                    <span class="ji-pill"><i class="fas fa-door-open"></i> {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}</span>
-                    <span class="ji-pill"><i class="fas fa-chalkboard-teacher"></i> {{ $jadwal->dosen?->nama ?? '-' }}</span>
-                </div>
-            </div>
-        @else
+        {{-- ── Jika belum terdaftar sama sekali ── --}}
+        @if(!$isRegistered)
             <div class="no-reg-banner">
                 <i class="fas fa-exclamation-circle"></i>
                 <p>Anda belum terdaftar di jadwal praktikum manapun.</p>
@@ -494,83 +441,174 @@
             </div>
         @endif
 
-        {{-- ── Summary Cards ── --}}
-        <div class="summary-row">
-            <div class="sum-card">
-                <div class="sum-icon" style="background:linear-gradient(135deg,#3b82f6,#1e40af)">
-                    <i class="fas fa-layer-group"></i>
+        {{-- ── Looping untuk setiap pendaftaran (setiap praktikum) ── --}}
+        @foreach($pendaftarans as $index => $pendaftaran)
+            @php
+                $jadwal       = $pendaftaran->jadwal;
+                $praktikum    = $jadwal?->praktikum;
+                $allPertemuan = $jadwal ? $jadwal->pertemuan->sortBy('pertemuan_ke') : collect();
+                
+                $pertemuanRows = collect();
+                $activeFound   = false;
+                
+                // Warna gradien berbeda untuk setiap praktikum
+                $gradientColor = $index % 2 == 0 ? 'linear-gradient(135deg, var(--blue), var(--blue-dark))' : 'linear-gradient(135deg, var(--purple), var(--purple-text))';
+                
+                if ($jadwal) {
+                    
+                    foreach ($allPertemuan as $p) {
+                        $sudahHadir = $p->presensis->where('id_user', $user->id)->isNotEmpty();
+                        $pStatus    = $p->status ?? null;
+                        $nilaiUser  = $p->nilais->where('id_user', $user->id)->first();
+                        
+                        if ($pStatus === 'Selesai' || $sudahHadir) {
+                            $rowStatus = 'Selesai';
+                        } elseif (!$activeFound && ($pStatus === 'Aktif' || $jadwal->status !== 'Selesai')) {
+                            $rowStatus   = 'Aktif';
+                            $activeFound = true;
+                        } else {
+                            $rowStatus = 'Upcoming';
+                        }
+                        
+                        $rowData = [
+                            'id'            => $p->id,
+                            'pertemuan_ke'  => $p->pertemuan_ke,
+                            'nama'          => $p->nama_pertemuan,
+                            'materi'        => $p->modul?->judul_modul ?? $p->deskripsi_pertemuan ?? '-',
+                            'hari'          => $jadwal->hari ?? '-',
+                            'jam'           => ($jadwal->jam_mulai ?? '-') . ' – ' . ($jadwal->jam_selesai ?? '-'),
+                            'lab'           => $jadwal->laboratorium?->nama_laboratorium ?? '-',
+                            'dosen'         => $jadwal->dosen?->nama ?? '-',
+                            'praktikum'     => $praktikum?->nama_praktikum ?? '-',
+                            'kode'          => $praktikum?->kode_praktikum ?? '-',
+                            'status'        => $rowStatus,
+                            'nilai_total'   => $nilaiUser?->nilai_total ?? $nilaiUser?->nilai_akhir ?? null,
+                            'has_laporan'   => !is_null($p->laporan),
+                        ];
+                        
+                        $pertemuanRows->push($rowData);
+                        $allPertemuanRows->push($rowData);
+                    }
+                }
+                
+                $totalPertemuan   = $pertemuanRows->count();
+                $countSelesai     = $pertemuanRows->where('status', 'Selesai')->count();
+                $countAktif       = $pertemuanRows->where('status', 'Aktif')->count();
+                $countUpcoming    = $pertemuanRows->where('status', 'Upcoming')->count();
+                $progressPct      = $totalPertemuan > 0 ? round(($countSelesai / $totalPertemuan) * 100) : 0;
+            @endphp
+            
+            {{-- ── Section untuk setiap praktikum ── --}}
+            <div class="praktikum-section" id="praktikum-{{ $pendaftaran->id }}">
+                {{-- Jadwal Info Card untuk setiap praktikum --}}
+                <div class="jadwal-info-card">
+                    <div class="ji-icon" style="background: {{ $gradientColor }}">
+                        <i class="fas fa-flask"></i>
+                    </div>
+                    <div class="ji-info">
+                        <div class="ji-nama">{{ $praktikum?->nama_praktikum ?? '-' }}</div>
+                        <div class="ji-kode">{{ $praktikum?->kode_praktikum ?? '-' }}</div>
+                    </div>
+                    <div class="ji-pills">
+                        <span class="ji-pill"><i class="fas fa-calendar-day"></i> {{ $jadwal->hari ?? '-' }}</span>
+                        <span class="ji-pill"><i class="fas fa-clock"></i> {{ $jadwal->jam_mulai ?? '-' }} – {{ $jadwal->jam_selesai ?? '-' }}</span>
+                        <span class="ji-pill"><i class="fas fa-door-open"></i> {{ $jadwal->laboratorium?->nama_laboratorium ?? '-' }}</span>
+                        <span class="ji-pill"><i class="fas fa-chalkboard-teacher"></i> {{ $jadwal->dosen?->nama ?? '-' }}</span>
+                    </div>
                 </div>
-                <div class="sum-info">
-                    <h4>Total Pertemuan</h4>
-                    <div class="sum-num">{{ $totalPertemuan }}</div>
-                </div>
-            </div>
-            <div class="sum-card">
-                <div class="sum-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
-                    <i class="fas fa-circle-dot"></i>
-                </div>
-                <div class="sum-info">
-                    <h4>Sedang Aktif</h4>
-                    <div class="sum-num">{{ $countAktif }}</div>
-                </div>
-            </div>
-            <div class="sum-card">
-                <div class="sum-icon" style="background:linear-gradient(135deg,#10b981,#047857)">
-                    <i class="fas fa-flag-checkered"></i>
-                </div>
-                <div class="sum-info">
-                    <h4>Selesai</h4>
-                    <div class="sum-num">{{ $countSelesai }}</div>
-                </div>
-            </div>
-            <div class="sum-card">
-                <div class="sum-icon" style="background:linear-gradient(135deg,#64748b,#334155)">
-                    <i class="fas fa-hourglass-half"></i>
-                </div>
-                <div class="sum-info">
-                    <h4>Akan Datang</h4>
-                    <div class="sum-num">{{ $countUpcoming }}</div>
-                </div>
-            </div>
-        </div>
 
-        {{-- ── Table Card ── --}}
-        <div class="table-card">
-            <div class="table-card-head">
-                <h3><i class="fas fa-table-list"></i> Daftar Pertemuan Praktikum</h3>
-                <div class="search-wrap">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Cari pertemuan, materi...">
+                {{-- ── Summary Cards untuk setiap praktikum ── --}}
+                <div class="summary-row">
+                    <div class="sum-card">
+                        <div class="sum-icon" style="background:linear-gradient(135deg,#3b82f6,#1e40af)">
+                            <i class="fas fa-layer-group"></i>
+                        </div>
+                        <div class="sum-info">
+                            <h4>Total Pertemuan</h4>
+                            <div class="sum-num">{{ $totalPertemuan }}</div>
+                        </div>
+                    </div>
+                    <div class="sum-card">
+                        <div class="sum-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
+                            <i class="fas fa-circle-dot"></i>
+                        </div>
+                        <div class="sum-info">
+                            <h4>Sedang Aktif</h4>
+                            <div class="sum-num">{{ $countAktif }}</div>
+                        </div>
+                    </div>
+                    <div class="sum-card">
+                        <div class="sum-icon" style="background:linear-gradient(135deg,#10b981,#047857)">
+                            <i class="fas fa-flag-checkered"></i>
+                        </div>
+                        <div class="sum-info">
+                            <h4>Selesai</h4>
+                            <div class="sum-num">{{ $countSelesai }}</div>
+                        </div>
+                    </div>
+                    <div class="sum-card">
+                        <div class="sum-icon" style="background:linear-gradient(135deg,#64748b,#334155)">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                        <div class="sum-info">
+                            <h4>Akan Datang</h4>
+                            <div class="sum-num">{{ $countUpcoming }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ── Progress Bar ── --}}
+                <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Progres Praktikum:</span>
+                    <div style="flex: 1; height: 6px; background: var(--slate-light); border-radius: var(--radius-full); overflow: hidden;">
+                        <div style="width: {{ $progressPct }}%; height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); border-radius: var(--radius-full);"></div>
+                    </div>
+                    <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-primary);">{{ $countSelesai }}/{{ $totalPertemuan }}</span>
+                </div>
+
+                {{-- ── Table Card untuk setiap praktikum ── --}}
+                <div class="table-card">
+                    <div class="table-card-head">
+                        <h3><i class="fas fa-table-list"></i> Daftar Pertemuan - {{ $praktikum?->nama_praktikum ?? '-' }}</h3>
+                        <div class="search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="search-input-per-praktikum" data-praktikum-id="{{ $pendaftaran->id }}" placeholder="Cari pertemuan, materi...">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="pertemuan-table" id="table-{{ $pendaftaran->id }}">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Pertemuan</th>
+                                    <th>Materi / Modul</th>
+                                    <th>Hari & Waktu</th>
+                                    <th>Ruangan</th>
+                                    <th>Dosen</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-{{ $pendaftaran->id }}"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-foot">
+                        <span class="table-info" id="tableInfo-{{ $pendaftaran->id }}">—</span>
+                        <div class="pagination">
+                            <button class="page-btn prev-page" data-praktikum-id="{{ $pendaftaran->id }}"><i class="fas fa-chevron-left"></i></button>
+                            <span class="page-info" id="pageInfo-{{ $pendaftaran->id }}">Halaman 1</span>
+                            <button class="page-btn next-page" data-praktikum-id="{{ $pendaftaran->id }}"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Pertemuan</th>
-                            <th>Materi / Modul</th>
-                            <th>Hari & Waktu</th>
-                            <th>Ruangan</th>
-                            <th>Dosen</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody"></tbody>
-                </table>
-            </div>
-
-            <div class="table-foot">
-                <span class="table-info" id="tableInfo">—</span>
-                <div class="pagination">
-                    <button class="page-btn" id="prevPage"><i class="fas fa-chevron-left"></i></button>
-                    <span class="page-info" id="pageInfo">Halaman 1</span>
-                    <button class="page-btn" id="nextPage"><i class="fas fa-chevron-right"></i></button>
-                </div>
-            </div>
-        </div>
+            
+            @if(!$loop->last)
+                <div class="section-divider"></div>
+            @endif
+        @endforeach
     </main>
 </div>
 
@@ -591,54 +629,170 @@
 </div>
 
 @php
-    // Serialize for JS
-    $jsData = $pertemuanRows->values()->toArray();
+    // Serialize semua data untuk JS (per praktikum)
+    $allDataByPraktikum = [];
+    foreach($pendaftarans as $pendaftaran) {
+        $jadwal = $pendaftaran->jadwal;
+        if ($jadwal) {
+            $rows = [];
+            $activeFoundTmp = false; // ← INITIALISASI VARIABLE
+            
+            foreach ($jadwal->pertemuan->sortBy('pertemuan_ke') as $p) {
+                $sudahHadir = $p->presensis->where('id_user', $user->id)->isNotEmpty();
+                $pStatus = $p->status ?? null;
+                $nilaiUser = $p->nilais->where('id_user', $user->id)->first();
+                
+                // Determine status
+                if ($pStatus === 'Selesai' || $sudahHadir) {
+                    $rowStatus = 'Selesai';
+                } elseif (!$activeFoundTmp) {
+                    $rowStatus = 'Aktif';
+                    $activeFoundTmp = true;
+                } else {
+                    $rowStatus = 'Upcoming';
+                }
+                
+                $rows[] = [
+                    'id' => $p->id,
+                    'pertemuan_ke' => $p->pertemuan_ke,
+                    'nama' => $p->nama_pertemuan,
+                    'materi' => $p->modul?->judul_modul ?? $p->deskripsi_pertemuan ?? '-',
+                    'hari' => $jadwal->hari ?? '-',
+                    'jam' => ($jadwal->jam_mulai ?? '-') . ' – ' . ($jadwal->jam_selesai ?? '-'),
+                    'lab' => $jadwal->laboratorium?->nama_laboratorium ?? '-',
+                    'dosen' => $jadwal->dosen?->nama ?? '-',
+                    'praktikum' => $jadwal->praktikum?->nama_praktikum ?? '-',
+                    'kode' => $jadwal->praktikum?->kode_praktikum ?? '-',
+                    'status' => $rowStatus,
+                    'nilai_total' => $nilaiUser?->nilai_total ?? $nilaiUser?->nilai_akhir ?? null,
+                ];
+            }
+            $allDataByPraktikum[$pendaftaran->id] = $rows;
+        }
+    }
+    
+    // Untuk export semua data
+    $allExportData = [];
+    foreach($pendaftarans as $pendaftaran) {
+        $jadwal = $pendaftaran->jadwal;
+        if ($jadwal) {
+            $activeFoundExport = false; // ← INITIALISASI VARIABLE
+            
+            foreach ($jadwal->pertemuan->sortBy('pertemuan_ke') as $p) {
+                $sudahHadir = $p->presensis->where('id_user', $user->id)->isNotEmpty();
+                $pStatus = $p->status ?? null;
+                $nilaiUser = $p->nilais->where('id_user', $user->id)->first();
+                
+                // Determine status
+                if ($pStatus === 'Selesai' || $sudahHadir) {
+                    $rowStatus = 'Selesai';
+                } elseif (!$activeFoundExport) {
+                    $rowStatus = 'Aktif';
+                    $activeFoundExport = true;
+                } else {
+                    $rowStatus = 'Upcoming';
+                }
+                
+                $allExportData[] = [
+                    'praktikum' => $jadwal->praktikum?->nama_praktikum ?? '-',
+                    'kode' => $jadwal->praktikum?->kode_praktikum ?? '-',
+                    'pertemuan_ke' => $p->pertemuan_ke,
+                    'nama_pertemuan' => $p->nama_pertemuan,
+                    'materi' => $p->modul?->judul_modul ?? $p->deskripsi_pertemuan ?? '-',
+                    'hari' => $jadwal->hari ?? '-',
+                    'jam' => ($jadwal->jam_mulai ?? '-') . ' – ' . ($jadwal->jam_selesai ?? '-'),
+                    'ruangan' => $jadwal->laboratorium?->nama_laboratorium ?? '-',
+                    'dosen' => $jadwal->dosen?->nama ?? '-',
+                    'status' => $rowStatus,
+                    'nilai' => $nilaiUser?->nilai_total ?? $nilaiUser?->nilai_akhir ?? '-',
+                ];
+            }
+        }
+    }
 @endphp
-
 <script>
-(function () {
-    const allData    = @json($jsData);
-    let filteredData = [...allData];
-    let currentPage  = 1;
-    const rowsPerPage = 10;
+document.querySelectorAll('.has-sub .sub-trigger').forEach(trigger => {
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const submenu = trigger.parentElement.querySelector('.submenu');
+        if (submenu) {
+            const isOpen = submenu.style.display === 'block';
+            submenu.style.display = isOpen ? 'none' : 'block';
+            const chevron = trigger.querySelector('.fa-chevron-down');
+            if (chevron) {
+                chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                chevron.style.transition = 'transform 0.3s';
+            }
+        }
+    });
+});
 
+(function () {
+    // Data per praktikum
+    const allDataByPraktikum = @json($allDataByPraktikum);
+    
+    // State per praktikum
+    const states = {};
+    
     function numBadgeClass(status) {
         if (status === 'Selesai')  return 'p-num-selesai';
         if (status === 'Aktif')    return 'p-num-aktif';
         return 'p-num-upcoming';
     }
+    
     function rowClass(status) {
         if (status === 'Aktif')   return 'row-aktif';
         if (status === 'Selesai') return 'row-selesai';
         return 'row-upcoming';
     }
+    
     function statusBadge(status) {
         if (status === 'Selesai')  return `<span class="badge badge-selesai"><i class="fas fa-check"></i> Selesai</span>`;
         if (status === 'Aktif')    return `<span class="badge badge-aktif"><span class="blink-dot"></span> Aktif</span>`;
         return `<span class="badge badge-upcoming"><i class="fas fa-hourglass-half"></i> Akan Datang</span>`;
     }
+    
     function truncate(str, n) {
         return str && str.length > n ? str.substring(0, n) + '…' : (str || '-');
     }
-
-    function renderTable() {
-        const search = document.getElementById('searchInput').value.toLowerCase();
-        const searched = filteredData.filter(d =>
-            d.nama.toLowerCase().includes(search) ||
-            d.materi.toLowerCase().includes(search) ||
-            d.dosen.toLowerCase().includes(search)
-        );
-
-        const total   = searched.length;
+    
+    function renderTableForPraktikum(praktikumId, page = 1) {
+        if (!states[praktikumId]) {
+            states[praktikumId] = {
+                currentPage: 1,
+                filteredData: [...(allDataByPraktikum[praktikumId] || [])]
+            };
+        }
+        
+        const state = states[praktikumId];
+        state.currentPage = page;
+        
+        const searchInput = document.querySelector(`.search-input-per-praktikum[data-praktikum-id="${praktikumId}"]`);
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        
+        let filteredData = [...(allDataByPraktikum[praktikumId] || [])];
+        if (searchTerm) {
+            filteredData = filteredData.filter(d =>
+                d.nama.toLowerCase().includes(searchTerm) ||
+                d.materi.toLowerCase().includes(searchTerm) ||
+                d.dosen.toLowerCase().includes(searchTerm)
+            );
+        }
+        state.filteredData = filteredData;
+        
+        const rowsPerPage = 10;
+        const total = filteredData.length;
         const totalPg = Math.max(1, Math.ceil(total / rowsPerPage));
-        if (currentPage > totalPg) currentPage = totalPg;
-
-        const start    = (currentPage - 1) * rowsPerPage;
-        const pageData = searched.slice(start, start + rowsPerPage);
-
-        const tbody = document.getElementById('tableBody');
+        if (state.currentPage > totalPg) state.currentPage = totalPg;
+        
+        const start = (state.currentPage - 1) * rowsPerPage;
+        const pageData = filteredData.slice(start, start + rowsPerPage);
+        
+        const tbody = document.getElementById(`tbody-${praktikumId}`);
+        if (!tbody) return;
+        
         tbody.innerHTML = '';
-
+        
         if (!pageData.length) {
             tbody.innerHTML = `
                 <tr class="empty-row">
@@ -668,24 +822,34 @@
                     <td>${item.dosen}</td>
                     <td>${statusBadge(item.status)}</td>
                     <td>
-                        <button class="btn-detail" data-id="${item.id}">
+                        <button class="btn-detail" data-id="${item.id}" data-praktikum-id="${praktikumId}">
                             <i class="fas fa-eye"></i> Detail
                         </button>
-                    </td>`;
+                    </td>
+                `;
                 tbody.appendChild(tr);
             });
-
-            document.querySelectorAll('.btn-detail').forEach(btn => {
-                btn.addEventListener('click', () => openDetail(+btn.dataset.id));
+            
+            // Attach detail button events
+            tbody.querySelectorAll('.btn-detail').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = parseInt(btn.dataset.id);
+                    const pid = btn.dataset.praktikumId;
+                    const data = allDataByPraktikum[pid];
+                    const item = data ? data.find(d => d.id === id) : null;
+                    if (item) openDetail(item);
+                });
             });
         }
-
-        document.getElementById('pageInfo').textContent  = `Halaman ${currentPage} dari ${totalPg}`;
-        document.getElementById('tableInfo').textContent = `Menampilkan ${Math.min(start + 1, total)}–${Math.min(start + rowsPerPage, total)} dari ${total} pertemuan`;
+        
+        // Update pagination info
+        const pageInfoSpan = document.getElementById(`pageInfo-${praktikumId}`);
+        const tableInfoSpan = document.getElementById(`tableInfo-${praktikumId}`);
+        if (pageInfoSpan) pageInfoSpan.textContent = `Halaman ${state.currentPage} dari ${totalPg}`;
+        if (tableInfoSpan) tableInfoSpan.textContent = `Menampilkan ${Math.min(start + 1, total)}–${Math.min(start + rowsPerPage, total)} dari ${total} pertemuan`;
     }
-
-    function openDetail(id) {
-        const item = allData.find(d => d.id === id);
+    
+    function openDetail(item) {
         if (!item) return;
         document.getElementById('detailContent').innerHTML = `
             <div class="detail-row"><span class="detail-label">Praktikum</span><span class="detail-val">${item.praktikum} (${item.kode})</span></div>
@@ -699,37 +863,70 @@
         `;
         document.getElementById('detailModal').classList.add('active');
     }
-
-    function closeDetail() { document.getElementById('detailModal').classList.remove('active'); }
-
+    
+    function closeDetail() { 
+        document.getElementById('detailModal').classList.remove('active'); 
+    }
+    
     function exportCSV() {
-        let csv = 'Pertemuan ke,Nama Pertemuan,Praktikum,Materi,Hari,Waktu,Ruangan,Dosen,Status\n';
-        filteredData.forEach(d => {
-            csv += `"${d.pertemuan_ke}","${d.nama}","${d.praktikum}","${d.materi}","${d.hari}","${d.jam}","${d.lab}","${d.dosen}","${d.status}"\n`;
+        const allExportData = @json($allExportData);
+        let csv = 'Praktikum,Kode Praktikum,Pertemuan ke,Nama Pertemuan,Materi,Hari,Waktu,Ruangan,Dosen,Status,Nilai\n';
+        allExportData.forEach(d => {
+            csv += `"${d.praktikum}","${d.kode}","${d.pertemuan_ke}","${d.nama_pertemuan}","${d.materi}","${d.hari}","${d.jam}","${d.ruangan}","${d.dosen}","${d.status}","${d.nilai}"\n`;
         });
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
         Object.assign(document.createElement('a'), { href: url, download: 'pendaftaran_saya.csv' }).click();
         URL.revokeObjectURL(url);
     }
-
+    
+    // Initialize all praktikum sections
+    function initializeAll() {
+        const praktikumIds = Object.keys(allDataByPraktikum);
+        praktikumIds.forEach(id => {
+            // Initialize state
+            states[id] = {
+                currentPage: 1,
+                filteredData: [...(allDataByPraktikum[id] || [])]
+            };
+            renderTableForPraktikum(id, 1);
+            
+            // Attach search event
+            const searchInput = document.querySelector(`.search-input-per-praktikum[data-praktikum-id="${id}"]`);
+            if (searchInput) {
+                searchInput.addEventListener('input', () => renderTableForPraktikum(id, 1));
+            }
+            
+            // Attach pagination events
+            const prevBtn = document.querySelector(`.prev-page[data-praktikum-id="${id}"]`);
+            const nextBtn = document.querySelector(`.next-page[data-praktikum-id="${id}"]`);
+            
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    if (states[id] && states[id].currentPage > 1) {
+                        renderTableForPraktikum(id, states[id].currentPage - 1);
+                    }
+                });
+            }
+            
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    const rowsPerPage = 10;
+                    const total = states[id]?.filteredData?.length || 0;
+                    const totalPg = Math.ceil(total / rowsPerPage);
+                    if (states[id] && states[id].currentPage < totalPg) {
+                        renderTableForPraktikum(id, states[id].currentPage + 1);
+                    }
+                });
+            }
+        });
+    }
+    
     // Events
-    document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; renderTable(); });
-    document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
-    document.getElementById('nextPage').addEventListener('click', () => {
-        const search   = document.getElementById('searchInput').value.toLowerCase();
-        const searched = filteredData.filter(d =>
-            d.nama.toLowerCase().includes(search) ||
-            d.materi.toLowerCase().includes(search) ||
-            d.dosen.toLowerCase().includes(search)
-        );
-        const totalPg = Math.ceil(searched.length / rowsPerPage);
-        if (currentPage < totalPg) { currentPage++; renderTable(); }
-    });
-    document.getElementById('exportBtn').addEventListener('click', exportCSV);
-    document.getElementById('closeDetailModal').addEventListener('click', closeDetail);
-    document.getElementById('closeDetailBtn').addEventListener('click', closeDetail);
+    document.getElementById('exportBtn')?.addEventListener('click', exportCSV);
+    document.getElementById('closeDetailModal')?.addEventListener('click', closeDetail);
+    document.getElementById('closeDetailBtn')?.addEventListener('click', closeDetail);
     window.addEventListener('click', e => { if (e.target.id === 'detailModal') closeDetail(); });
-
+    
     // Mobile sidebar
     const mobileToggle = document.getElementById('mobileMenuToggle');
     const sidebarNav   = document.getElementById('sidebarNav');
@@ -741,8 +938,9 @@
             icon?.classList.toggle('fa-times');
         });
     }
-
-    renderTable();
+    
+    // Run initialization
+    initializeAll();
 })();
 </script>
 </body>
