@@ -28,7 +28,7 @@ class AiController extends Controller
         $modul = Modul::findOrFail($id_modul);
         
         // Sesuaikan dengan letak penyimpanan PDF di project kamu (misal di folder public storage)
-        $filePath = storage_path('synclabai-2-production.up.railway.app' . $modul->filepath);
+        $filePath = storage_path('https://synclabai-2-production.up.railway.app' . $modul->filepath);
 
         if (!file_exists($filePath)) {
             return redirect()->back()->with('error', 'File PDF Modul tidak ditemukan di server.');
@@ -107,7 +107,7 @@ class AiController extends Controller
     }
 
         // Sesuaikan dengan letak penyimpanan PDF di project kamu
-        $filePath = storage_path('synclabai-2-production.up.railway.app' . $modul->filepath);
+        $filePath = storage_path('https://synclabai-2-production.up.railway.app' . $modul->filepath);
 
     if (!file_exists($filePath)) {
         return response()->json([   // ✅ JSON, bukan redirect
@@ -176,7 +176,7 @@ class AiController extends Controller
         $modul = Modul::findOrFail($id_modul);
         
         // Sesuaikan dengan letak penyimpanan PDF di project kamu
-        $filePath = storage_path('synclabai-2-production.up.railway.app' . $modul->filepath);
+        $filePath = storage_path('https://synclabai-2-production.up.railway.app' . $modul->filepath);
 
         if (!file_exists($filePath)) {
             return response()->json([
