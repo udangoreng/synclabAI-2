@@ -17,7 +17,7 @@ use App\Models\StudentAnswer;
 class AiController extends Controller
 {
     // Masukkan URL service Python FastAPI kamu
-    private $baseUrl = 'http://127.0.0.1:8001';
+    private $baseUrl = 'https://damandaap-synclab-ai-service.hf.space';
 
     /**
      * 1. TRIGGER GENERATE AI (Flashcard & Soal) dari PDF Modul
