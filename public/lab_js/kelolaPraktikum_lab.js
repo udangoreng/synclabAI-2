@@ -83,8 +83,8 @@ function openDetailModal(id) {
 
   console.log('Item:', item);
   console.log('Jadwal:', jadwalList);
-  console.log('Asisten:', asistenList);
-  console.log('Mahasiswa:', mahasiswaList);
+  console.log('asisten:', asistenList);
+  console.log('mahasiswa:', mahasiswaList);
 
   document.getElementById('detailStats').innerHTML = `
                 <div class="stat-card">

@@ -258,7 +258,7 @@
 </head>
 <body>
 <div class="dashboard-container">
-    @include('Mahasiswa.partials.sidebar')
+    @include('mahasiswa.partials.sidebar')
     
     <main class="main-content">
         <a href="{{ route('modul') }}" class="back-button">

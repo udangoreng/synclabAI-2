@@ -65,7 +65,7 @@ class MahasiswaController extends Controller
             ->pluck('pertemuan.praktikum.nama_praktikum')
             ->unique()->filter()->values();
 
-        return view('Mahasiswa.pretest', compact('pretestData', 'matkulList'));
+        return view('mahasiswa.pretest', compact('pretestData', 'matkulList'));
     }
 
     // ─── Endpoint: Presensi / Absen ──────────────────────────────────────────
@@ -223,7 +223,7 @@ class MahasiswaController extends Controller
             $modul = $pertemuan->modul;
             $totalQuestions = $pretest->questions->count();
 
-            return view('Mahasiswa.takePretestStudent', compact('pretest', 'pertemuan', 'modul', 'totalQuestions'));
+            return view('mahasiswa.takePretestStudent', compact('pretest', 'pertemuan', 'modul', 'totalQuestions'));
 
         } catch (\Exception $e) {
             \Log::error('ShowPretestQuestions Error: ' . $e->getMessage());
@@ -390,7 +390,7 @@ class MahasiswaController extends Controller
             ->with('pertemuan.praktikum')
             ->get();
 
-        return view('Mahasiswa.riwayat', compact('nilais', 'presensis'));
+        return view('mahasiswa.riwayat', compact('nilais', 'presensis'));
     }
 
     public function getMyModul()
@@ -407,7 +407,7 @@ class MahasiswaController extends Controller
             ->pluck('pertemuan.praktikum.nama_praktikum')
             ->unique()->filter()->values();
 
-        return view('Mahasiswa.modul', compact('moduls', 'matkulList'));
+        return view('mahasiswa.modul', compact('moduls', 'matkulList'));
     }
 
     public function showModul($id_pertemuan)
@@ -426,7 +426,7 @@ class MahasiswaController extends Controller
             }])
             ->get();
 
-        return view('Mahasiswa.modul-detail', compact('pertemuan', 'modul', 'flashcards'));
+        return view('mahasiswa.modul-detail', compact('pertemuan', 'modul', 'flashcards'));
     }
 
     public function getMyFlashcard()
@@ -443,7 +443,7 @@ class MahasiswaController extends Controller
 
         $groupedFlashcards = $flashcards->groupBy(fn($card) => $card->modul?->id_pertemuan);
 
-        return view('Mahasiswa.flashcard', compact('groupedFlashcards', 'flashcards'));
+        return view('mahasiswa.flashcard', compact('groupedFlashcards', 'flashcards'));
     }
 
     public function showFlashcardByPertemuan($id_pertemuan)
@@ -476,7 +476,7 @@ class MahasiswaController extends Controller
             'back'  => $card->back,
         ])->values();
 
-        return view('Mahasiswa.flashcard-detail', compact('pertemuan', 'modul', 'flashcardsToReview', 'allFlashcards', 'flashcardsJson'));
+        return view('mahasiswa.flashcard-detail', compact('pertemuan', 'modul', 'flashcardsToReview', 'allFlashcards', 'flashcardsJson'));
     }
 
     function getMahasiswa(Request $request)
@@ -645,7 +645,7 @@ class MahasiswaController extends Controller
             ];
         });
 
-        return view('Mahasiswa.dashboard', compact(
+        return view('mahasiswa.dashboard', compact(
             'user',
             'praktikumCount',
             'nilais',

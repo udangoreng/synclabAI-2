@@ -271,7 +271,7 @@ class DosenController extends Controller
         $praktikums = Praktikum::all()->pluck('nama_praktikum')->unique();
         $kehadiranChartData = $this->getAttendanceChartDataByClass($filterPraktikum, $filterPertemuan);
 
-        return view('Dosen.monitoring', compact(
+        return view('dosen.monitoring', compact(
             'presences',
             'kehadiranPercent',
             'rataNilai',
@@ -387,7 +387,7 @@ class DosenController extends Controller
         
         $praktikums = Praktikum::all();
         
-        return view('Dosen.presensi', compact('presences', 'praktikums', 'filterPraktikum', 'filterPertemuan'));
+        return view('dosen.presensi', compact('presences', 'praktikums', 'filterPraktikum', 'filterPertemuan'));
     }
     
     /**
@@ -437,7 +437,7 @@ class DosenController extends Controller
         
         $praktikums = Praktikum::all();
         
-        return view('Dosen.validasinilai', compact('nilais', 'praktikums', 'filterPraktikum', 'filterStatus'));
+        return view('dosen.validasinilai', compact('nilais', 'praktikums', 'filterPraktikum', 'filterStatus'));
     }
     
     /**
@@ -484,7 +484,7 @@ class DosenController extends Controller
         
         $praktikums = Praktikum::all();
         
-        return view('Dosen.statuspendaftaran', compact('pendaftarans', 'praktikums', 'filterPraktikum'));
+        return view('dosen.statuspendaftaran', compact('pendaftarans', 'praktikums', 'filterPraktikum'));
     }*/
 
     /**
@@ -560,7 +560,7 @@ class DosenController extends Controller
     public function manageLaboran()
     {
         $laborans = User::where('role', 'Admin')->get();
-        return view('Dosen.manageLaboran', compact('laborans'));
+        return view('dosen.manageLaboran', compact('laborans'));
     }
     */
     /**

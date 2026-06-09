@@ -10,7 +10,7 @@
 </head>
 
 <body>
-    @include('Asisten/partials/sidebar')
+    @include('asisten/partials/sidebar')
 
     <main class="main">
         <section class="hero">
